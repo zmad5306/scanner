@@ -6,6 +6,7 @@ import java.util.UUID;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -13,9 +14,9 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
-import org.springframework.util.Assert;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.socket.WebSocketHttpHeaders;
+import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.client.WebSocketClient;
 import org.springframework.web.socket.client.standard.StandardWebSocketClient;
 
@@ -26,13 +27,15 @@ public class ScannerApplication implements CommandLineRunner {
 	private final String authorizationHeaderFormat = "Bearer %s";
 	private final String endpointURI = "wss://speech.platform.bing.com/speech/recognition/conversation/cognitiveservices/v1?language=en-US";
 	private final Logger logger = LoggerFactory.getLogger(ScannerApplication.class);
+	
 	private String token;
 	private String connectionId;
 	
+	@Value("${subscriptionKey}")
+	private String subscriptionKey;
+	
 	private String getToken() {
     	if (null == token) {
-    		String subscriptionKey = System.getProperty("subscriptionKey");
-    		Assert.notNull(subscriptionKey, "'subscriptionKey' must be provided as system property -DsubscriptionKey=<your key here>");
 	    	RestTemplate restTemplate = new RestTemplate();
 			HttpHeaders headers = new HttpHeaders();
 			headers.set("Ocp-Apim-Subscription-Key", subscriptionKey);
@@ -69,6 +72,6 @@ public class ScannerApplication implements CommandLineRunner {
 	@Override
 	public void run(String... args) throws Exception {
 		WebSocketClient client = new StandardWebSocketClient();
-		client.doHandshake(new SpeechWebSocketHandler(), getHeaders(), new URI(endpointURI));
+		WebSocketSession session = client.doHandshake(new SpeechWebSocketHandler(), getHeaders(), new URI(endpointURI)).get();
 	}
 }
