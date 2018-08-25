@@ -1,20 +1,16 @@
 package com.example.scanner;
 
-import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.InputStream;
 import java.net.URI;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
 import java.util.Arrays;
-import java.util.Date;
-import java.util.TimeZone;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.ArrayUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,12 +41,6 @@ public class ScannerApplication implements CommandLineRunner {
 			"X-Timestamp:%s\r\n" + 
 			"Content-Type:audio/x-wav\r\n" + 
 			"X-RequestId:%s\r\n";
-	
-	
-//	path:audio
-//	x-timestamp:2018-08-24T18:23:25.664Z
-//	content-type:audio/x-wav
-//	x-requestid:0a26bf38e33e4f508fb8f9fbcff5a424
 	
 	private String token;
 	private String connectionId;
@@ -93,22 +83,8 @@ public class ScannerApplication implements CommandLineRunner {
     	return headers;
     }
     
-    private String buildNowHeader() {
-    	TimeZone tz = TimeZone.getTimeZone("UTC");
-		DateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm'Z'"); // Quoted "Z" to indicate UTC, no timezone offset
-		df.setTimeZone(tz);
-		String nowAsISO = df.format(new Date());
-		return nowAsISO;
-    }
-    
 	private BinaryMessage createMessage(byte[] buffer) {
-	  /* Headers:
-	      [{'path':'audio'},
-	      {'x-timestamp':Date.UTC(new Date().toISOString())},
-	      {'content-type': 'audio/x-wav'},
-	      {'x-requestid': connectionId}];
-	  */
-		String headers = String.format(chunkHeader, buildNowHeader(), getMessageId());
+		String headers = String.format(chunkHeader, SpeechUtils.now(), getMessageId());
 		Short hdrLength = Integer.valueOf(headers.length()).shortValue();
 		
 		byte[] headerLength = ByteBuffer.allocate(2).putShort(hdrLength).array();
@@ -127,15 +103,17 @@ public class ScannerApplication implements CommandLineRunner {
 		WebSocketClient client = new StandardWebSocketClient();
 		WebSocketSession session = client.doHandshake(new SpeechWebSocketHandler(), getHeaders(), new URI(endpointURI)).get(30, TimeUnit.SECONDS);
 		
-		InputStream in = Files.newInputStream(new File("C:\\Users\\Zach\\Desktop\\Repos\\scanner-convert\\samples\\broadcastify01.wav").toPath());
-		byte[] buffer = new byte[8192];
-		int len = 0;
-		while((len = in.read(buffer)) != -1) {
-			logger.trace("read {} bytes", len);
-			BinaryMessage message = createMessage(buffer);
+		InputStream in = Files.newInputStream(new File("C:\\Users\\Zach\\Desktop\\Repos\\scanner-convert\\samples\\future-of-flying.wav").toPath());
+		byte[] audio = IOUtils.toByteArray(in);
+		
+		int chunk = 8192;
+		for(int i=0;i<audio.length;i+=chunk){
+			BinaryMessage message = createMessage(
+					Arrays.copyOfRange(audio, i, Math.min(audio.length,i+chunk))
+				);
 			session.sendMessage(message);
-		}
+		} 
+		
 	}
-
 
 }
